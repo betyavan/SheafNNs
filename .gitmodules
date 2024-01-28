@@ -1,0 +1,3 @@
+[submodule "jupiter/pygcn"]
+	path = jupiter/pygcn
+	url = https://github.com/tkipf/pygcn.git
