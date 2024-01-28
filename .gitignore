@@ -5,4 +5,4 @@ jupiter/tests/
 */weights/
 *.DS_Store
 */runs/
-*.idea
+*/.idea/
