@@ -4,3 +4,4 @@ jupiter/tests/
 */wandb/
 */weights/
 *.DS_Store
+*/runs/
