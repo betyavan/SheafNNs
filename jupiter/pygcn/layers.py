@@ -16,7 +16,7 @@ class GCNConv(MessagePassing):
         self.laplac_size = laplac_size
         
         if self.laplac_size:
-            self.sheafs = torch.concat([torch.eye(in_channels).unsqueeze(0) for _ in range(laplac_size)])
+            self.sheafs = torch.concat([torch.eye(out_channels).unsqueeze(0) for _ in range(laplac_size)])
 
         self.reset_parameters()
 
@@ -32,7 +32,7 @@ class GCNConv(MessagePassing):
         edge_index, _ = add_self_loops(edge_index, num_nodes=x.size(0))
 
         # Step 2: Linearly transform node feature matrix.
-        # x = self.lin(x)
+        x = self.lin(x)
 
         # Step 3: Compute normalization.
         row, col = edge_index
@@ -54,9 +54,10 @@ class GCNConv(MessagePassing):
         
         if self.laplac_size:
             channels = x_j.size(1)
+            # print(self.sheafs.size(), x_j.size())
             x_j = torch.matmul(self.sheafs, x_j.unsqueeze(2)).view(-1, channels)
         
-        x_j = self.lin(x_j)
+        # x_j = self.lin(x_j)
 
         # Step 4: Normalize node features.
         return norm.view(-1, 1) * x_j
