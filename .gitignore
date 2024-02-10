@@ -6,3 +6,5 @@ jupiter/tests/
 *.DS_Store
 */runs/
 .idea
+jupiter/cora/
+*__pycache__/
