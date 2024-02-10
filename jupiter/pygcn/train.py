@@ -1,6 +1,3 @@
-from __future__ import division
-from __future__ import print_function
-
 import time
 import argparse
 import numpy as np
@@ -11,96 +8,101 @@ import torch.optim as optim
 
 from pygcn.utils import load_data, accuracy
 from pygcn.models import GCN
-
-# Training settings
-parser = argparse.ArgumentParser()
-parser.add_argument('--no-cuda', action='store_true', default=False,
-                    help='Disables CUDA training.')
-parser.add_argument('--fastmode', action='store_true', default=False,
-                    help='Validate during training pass.')
-parser.add_argument('--seed', type=int, default=42, help='Random seed.')
-parser.add_argument('--epochs', type=int, default=200,
-                    help='Number of epochs to train.')
-parser.add_argument('--lr', type=float, default=0.01,
-                    help='Initial learning rate.')
-parser.add_argument('--weight_decay', type=float, default=5e-4,
-                    help='Weight decay (L2 loss on parameters).')
-parser.add_argument('--hidden', type=int, default=16,
-                    help='Number of hidden units.')
-parser.add_argument('--dropout', type=float, default=0.5,
-                    help='Dropout rate (1 - keep probability).')
-
-args = parser.parse_args()
-args.cuda = not args.no_cuda and torch.cuda.is_available()
-
-np.random.seed(args.seed)
-torch.manual_seed(args.seed)
-if args.cuda:
-    torch.cuda.manual_seed(args.seed)
-
-# Load data
-adj, features, labels, idx_train, idx_val, idx_test = load_data()
-
-# Model and optimizer
-model = GCN(nfeat=features.shape[1],
-            nhid=args.hidden,
-            nclass=labels.max().item() + 1,
-            dropout=args.dropout)
-optimizer = optim.Adam(model.parameters(),
-                       lr=args.lr, weight_decay=args.weight_decay)
-
-if args.cuda:
-    model.cuda()
-    features = features.cuda()
-    adj = adj.cuda()
-    labels = labels.cuda()
-    idx_train = idx_train.cuda()
-    idx_val = idx_val.cuda()
-    idx_test = idx_test.cuda()
+from torch.utils.tensorboard import SummaryWriter
+import pytorch_lightning as pl
+from pytorch_lightning.loggers import TensorBoardLogger
+from torch_geometric.datasets import Planetoid
 
 
-def train(epoch):
-    t = time.time()
-    model.train()
-    optimizer.zero_grad()
-    output = model(features, adj)
-    loss_train = F.nll_loss(output[idx_train], labels[idx_train])
-    acc_train = accuracy(output[idx_train], labels[idx_train])
-    loss_train.backward()
-    optimizer.step()
-
-    if not args.fastmode:
-        # Evaluate validation set performance separately,
-        # deactivates dropout during validation run.
-        model.eval()
-        output = model(features, adj)
-
-    loss_val = F.nll_loss(output[idx_val], labels[idx_val])
-    acc_val = accuracy(output[idx_val], labels[idx_val])
-    print('Epoch: {:04d}'.format(epoch+1),
-          'loss_train: {:.4f}'.format(loss_train.item()),
-          'acc_train: {:.4f}'.format(acc_train.item()),
-          'loss_val: {:.4f}'.format(loss_val.item()),
-          'acc_val: {:.4f}'.format(acc_val.item()),
-          'time: {:.4f}s'.format(time.time() - t))
+def set_seed(seed=42):
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.mps.manual_seed(seed)
 
 
-def test():
-    model.eval()
-    output = model(features, adj)
-    loss_test = F.nll_loss(output[idx_test], labels[idx_test])
-    acc_test = accuracy(output[idx_test], labels[idx_test])
-    print("Test set results:",
-          "loss= {:.4f}".format(loss_test.item()),
-          "accuracy= {:.4f}".format(acc_test.item()))
+    
+class CORA_Dataset(torch.utils.data.Dataset):
+    def __init__(self):
+        super(CORA_Dataset).__init__()
+        self.data = Planetoid(root='./cora/', name='cora')[0]
+        
+    def __len__(self):
+        return 1
+    
+    def __getitem__(self, idx):
+        return self.data.x, self.data.edge_index, self.data.y,\
+               self.data.train_mask, self.data.val_mask, self.data.test_mask
+    
 
+    
+class GCN_module(pl.LightningModule):
+    def __init__(self, nfeat, nhid, nclass, dropout, laplac_size, learning_rate=0.01, weight_decay=5e-4):
+        super(GCN_module, self).__init__()
+        self.model = GCN(nfeat=nfeat,
+                         nhid=hidden,
+                         nclass=nclass,
+                         dropout=dropout,
+                         laplac_size=laplac_size)
+        
+        self.learning_rate = learning_rate
+        self.weight_decay = weight_decay
+        self.loss_fn = F.nll_loss
+        
+    def configure_optimizers(self):
+        optim = torch.optim.Adam(self.parameters(), lr=self.learning_rate,
+                           weight_decay=self.weight_decay)
+        return optim
+    
+    def forward(self, features, adj):
+        return self.model(features, adj)
+    
+    
+    def training_step(self, train_batch, batch_idx):
+        x, edge_index, y, train_mask, val_mask, _ = train_batch
+        x, edge_index, y = x[0], edge_index[0], y[0]
+        train_mask, val_mask = train_mask[0], val_mask[0]
+        
+        output = self.model(x, edge_index)
+        
+        loss_train = self.loss_fn(output[train_mask], y[train_mask])
+        acc_train = accuracy(output[train_mask], y[train_mask])
+        
+        loss_val = self.loss_fn(output[val_mask], y[val_mask])
+        acc_val = accuracy(output[val_mask], y[val_mask])
+        
+        self.log("loss_train", loss_train, prog_bar=True)
+        self.log("acc_train", acc_train, prog_bar=True)
+        
+        self.log("loss_val", loss_val, prog_bar=True)
+        self.log("acc_val", acc_val, prog_bar=True)
+        
+        return loss_train
+        
+    def validation_step(self, val_batch, batch_idx):
+        pass
+        
+    
 
-# Train model
-t_total = time.time()
-for epoch in range(args.epochs):
-    train(epoch)
-print("Optimization Finished!")
-print("Total time elapsed: {:.4f}s".format(time.time() - t_total))
-
-# Testing
-test()
+if __name__ == "__main__":
+    set_seed()
+    
+    dataset = CORA_Dataset()
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False)
+    
+    nfeat = dataset.data.x.size(1)
+    hidden = 16
+    nclass = dataset.data.y.max().item() + 1
+    dropout = 0.5
+    laplac_size = dataset.data.edge_index.size(1) + dataset.data.x.size(0)
+    weight_decay = 5e-4
+    
+    module = GCN_module(nfeat, hidden, nclass, dropout, laplac_size)
+    
+    device = "cpu"
+    trainer = pl.Trainer(max_epochs=400, accelerator=device)
+    
+    trainer.fit(module, dataloader, dataloader)
+    
+    
+    
+    
