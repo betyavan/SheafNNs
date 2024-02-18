@@ -8,3 +8,4 @@ jupiter/tests/
 .idea
 jupiter/cora/
 *__pycache__/
+*.pt

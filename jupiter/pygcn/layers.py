@@ -8,15 +8,12 @@ from torch_geometric.nn import MessagePassing
 from torch_geometric.utils import add_self_loops, degree
 
 class GCNConv(MessagePassing):
-    def __init__(self, in_channels, out_channels, laplac_size=None):
+    def __init__(self, in_channels, out_channels, sheaf_laplacian=None):
         super().__init__(aggr='add')  # "Add" aggregation (Step 5).
         self.lin = Linear(in_channels, out_channels, bias=False)
         self.bias = Parameter(torch.empty(out_channels))
         
-        self.laplac_size = laplac_size
-        
-        if self.laplac_size:
-            self.sheafs = torch.concat([torch.eye(out_channels).unsqueeze(0) for _ in range(laplac_size)])
+        self.sheaf_laplacian = sheaf_laplacian
 
         self.reset_parameters()
 
@@ -52,49 +49,13 @@ class GCNConv(MessagePassing):
     def message(self, x_j, norm):
         # x_j has shape [E, out_channels]
         
-        if self.laplac_size:
+        if self.sheaf_laplacian is not None:
             channels = x_j.size(1)
             # print(self.sheafs.size(), x_j.size())
-            x_j = torch.matmul(self.sheafs, x_j.unsqueeze(2)).view(-1, channels)
+            x_j = torch.matmul(self.sheaf_laplacian, x_j.unsqueeze(2)).view(-1, channels)
         
         # x_j = self.lin(x_j)
 
         # Step 4: Normalize node features.
         return norm.view(-1, 1) * x_j
 
-
-class GraphConvolution(Module):
-    """
-    Simple GCN layer, similar to https://arxiv.org/abs/1609.02907
-    """
-
-    def __init__(self, in_features, out_features, bias=True):
-        super(GraphConvolution, self).__init__()
-        self.in_features = in_features
-        self.out_features = out_features
-        self.weight = Parameter(torch.FloatTensor(in_features, out_features))
-        if bias:
-            self.bias = Parameter(torch.FloatTensor(out_features))
-        else:
-            self.register_parameter('bias', None)
-        self.reset_parameters()
-
-    def reset_parameters(self):
-        stdv = 1. / math.sqrt(self.weight.size(1))
-        self.weight.data.uniform_(-stdv, stdv)
-        if self.bias is not None:
-            self.bias.data.uniform_(-stdv, stdv)
-
-    def forward(self, input, adj):
-        # support = torch.mm(input, self.weight)
-        support = torch.matmul(input, self.weight)
-        output = torch.spmm(adj, support)
-        if self.bias is not None:
-            return output + self.bias
-        else:
-            return output
-
-    def __repr__(self):
-        return self.__class__.__name__ + ' (' \
-               + str(self.in_features) + ' -> ' \
-               + str(self.out_features) + ')'

@@ -4,11 +4,11 @@ from .layers import GCNConv
 
 
 class GCN(nn.Module):
-    def __init__(self, nfeat, nhid, nclass, dropout, laplac_size=None):
+    def __init__(self, nfeat, nhid, nclass, dropout, sheaf_laplacian=None):
         super(GCN, self).__init__()
 
-        self.gc1 = GCNConv(nfeat, nhid, laplac_size)
-        self.gc2 = GCNConv(nhid, nclass, laplac_size)
+        self.gc1 = GCNConv(nfeat, nhid, sheaf_laplacian)
+        self.gc2 = GCNConv(nhid, nclass)
         self.dropout = dropout
         
     def forward(self, x, edge_index):

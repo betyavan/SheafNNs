@@ -99,7 +99,7 @@ if __name__ == "__main__":
     module = GCN_module(nfeat, hidden, nclass, dropout, laplac_size)
     
     device = "cpu"
-    trainer = pl.Trainer(max_epochs=400, accelerator=device)
+    trainer = pl.Trainer(max_epochs=300, accelerator=device)
     
     trainer.fit(module, dataloader, dataloader)
     
