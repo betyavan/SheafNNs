@@ -6,12 +6,11 @@ import torch
 import torch.nn.functional as F
 import torch.optim as optim
 
-from pygcn.utils import load_data, accuracy
 from pygcn.models import GCN
-from torch.utils.tensorboard import SummaryWriter
 import pytorch_lightning as pl
-from pytorch_lightning.loggers import TensorBoardLogger
 from torch_geometric.datasets import Planetoid
+
+from sklearn.preprocessing import StandardScaler
 
 
 def set_seed(seed=42):
@@ -24,25 +23,34 @@ def set_seed(seed=42):
 class CORA_Dataset(torch.utils.data.Dataset):
     def __init__(self):
         super(CORA_Dataset).__init__()
-        self.data = Planetoid(root='./cora/', name='cora')[0]
+        self.data = Planetoid(root='datasets/cora/', name='cora')[0]
+
+        scaler = StandardScaler()
+        self.data.x[self.data.train_mask] = torch.FloatTensor(scaler.fit_transform(self.data.x[self.data.train_mask]))
+        self.data.x[self.data.val_mask] = torch.FloatTensor(scaler.transform(self.data.x[self.data.val_mask]))
+        self.data.x[self.data.test_mask] = torch.FloatTensor(scaler.transform(self.data.x[self.data.test_mask]))
+
+        self.data.x = self.data.x.to(torch.float32)
         
     def __len__(self):
         return 1
     
     def __getitem__(self, idx):
         return self.data.x, self.data.edge_index, self.data.y,\
-               self.data.train_mask, self.data.val_mask, self.data.test_mask
+               self.data.train_mask | self.data.val_mask, self.data.test_mask
     
 
     
 class GCN_module(pl.LightningModule):
-    def __init__(self, nfeat, nhid, nclass, dropout, laplac_size, learning_rate=0.01, weight_decay=5e-4):
+    def __init__(self, n_feat, n_hid, n_class,
+                       dropout, sheaf_laplacian,
+                       learning_rate=0.01, weight_decay=5e-4):
         super(GCN_module, self).__init__()
-        self.model = GCN(nfeat=nfeat,
-                         nhid=hidden,
-                         nclass=nclass,
+        self.model = GCN(nfeat=n_feat,
+                         nhid=h_idden,
+                         nclass=n_class,
                          dropout=dropout,
-                         laplac_size=laplac_size)
+                         sheaf_laplacian=sheaf_laplacian)
         
         self.learning_rate = learning_rate
         self.weight_decay = weight_decay
@@ -58,7 +66,7 @@ class GCN_module(pl.LightningModule):
     
     
     def training_step(self, train_batch, batch_idx):
-        x, edge_index, y, train_mask, val_mask, _ = train_batch
+        x, edge_index, y, train_mask, val_mask = train_batch
         x, edge_index, y = x[0], edge_index[0], y[0]
         train_mask, val_mask = train_mask[0], val_mask[0]
         
@@ -80,28 +88,45 @@ class GCN_module(pl.LightningModule):
         
     def validation_step(self, val_batch, batch_idx):
         pass
+
+
+def init_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--dataset", type=str, help="name of training dataset")
+    parser.add_argument("-d", type=int, help="dimension of edge space")
+
+    return parser
         
     
 
 if __name__ == "__main__":
+
+    parser = init_parser()
+    args = parser.parse_args()
+
     set_seed()
     
     dataset = CORA_Dataset()
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False)
     
-    nfeat = dataset.data.x.size(1)
+    n_feat = dataset.data.x.size(1)
     hidden = 16
-    nclass = dataset.data.y.max().item() + 1
+    n_class = dataset.data.y.max().item() + 1
     dropout = 0.5
-    laplac_size = dataset.data.edge_index.size(1) + dataset.data.x.size(0)
+
+    from pygcn.train_sheaf import build_sheaf_laplacian
+    sheaf_laplacian = build_sheaf_laplacian(dataset.data.x, dataset.data.edge_index, hidden)
+    torch.save(sheaf_laplacian, f"weights/slaplac_{args.dataset}_{args.d}.pt")
+
     weight_decay = 5e-4
     
-    module = GCN_module(nfeat, hidden, nclass, dropout, laplac_size)
+    module = GCN_module(n_feat, hidden, n_class, dropout, laplac_size)
     
     device = "cpu"
     trainer = pl.Trainer(max_epochs=300, accelerator=device)
     
     trainer.fit(module, dataloader, dataloader)
+    torch.save(module.state_dict(), f"weights/gcn_{args.dataset}_{args.d}.pt")
     
     
     
