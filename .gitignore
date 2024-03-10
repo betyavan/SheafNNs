@@ -1,11 +1,8 @@
 *.ipynb_checkpoints
-jupiter/tests/
-*/lightning_logs/
-*/wandb/
-*/weights/
+tests/
+lightning_logs/
+weights/
 *.DS_Store
-*/runs/
-.idea
-jupiter/cora/
+cora/
 *__pycache__/
 *.pt
