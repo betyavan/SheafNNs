@@ -94,6 +94,8 @@ def init_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", type=str, help="name of training dataset")
     parser.add_argument("-d", type=int, help="dimension of edge space")
+    parser.add_argument("--device", type=str, help="device for evaluation")
+    parser.add_argument("--pretrained_sheaf", type=bool, help="use pretrained weights for sheaf")
 
     return parser
         
@@ -114,16 +116,18 @@ if __name__ == "__main__":
     n_class = dataset.data.y.max().item() + 1
     dropout = 0.5
 
-    from pygcn.train_sheaf import build_sheaf_laplacian
-    sheaf_laplacian = build_sheaf_laplacian(dataset.data.x, dataset.data.edge_index, hidden)
-    torch.save(sheaf_laplacian, f"weights/slaplac_{args.dataset}_{args.d}.pt")
+    if args.pretrained_sheaf:
+        sheaf_laplacian = torch.load(f"weights/slaplac_{args.dataset}_{args.d}.pt")
+    else:
+        from pygcn.train_sheaf import build_sheaf_laplacian
+        sheaf_laplacian = build_sheaf_laplacian(dataset.data.x, dataset.data.edge_index, hidden, device=args.device)
+        torch.save(sheaf_laplacian, f"weights/slaplac_{args.dataset}_{args.d}.pt")
 
     weight_decay = 5e-4
     
-    module = GCN_module(n_feat, hidden, n_class, dropout, laplac_size)
+    module = GCN_module(n_feat, hidden, n_class, dropout, sheaf_laplacian)
     
-    device = "cpu"
-    trainer = pl.Trainer(max_epochs=300, accelerator=device)
+    trainer = pl.Trainer(max_epochs=300, accelerator=args.device)
     
     trainer.fit(module, dataloader, dataloader)
     torch.save(module.state_dict(), f"weights/gcn_{args.dataset}_{args.d}.pt")

@@ -1,3 +1,5 @@
 python -m run \
     --dataset cora \
-    -d 16
+    -d 16 \
+    --device cuda 
+    # --pretrained_sheaf 
