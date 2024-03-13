@@ -1,4 +1,4 @@
-import time
+import os
 import argparse
 import numpy as np
 
@@ -102,6 +102,8 @@ def init_parser():
     
 
 if __name__ == "__main__":
+    
+    os.makedirs("weights/", exist_ok=True)
 
     parser = init_parser()
     args = parser.parse_args()
