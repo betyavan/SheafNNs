@@ -30,21 +30,25 @@ def build_sheaf_laplacian(x, edge_index, d, is_self_loops=True, device='cuda'):
         U, _, _ = torch.linalg.svd(x_local) 
         O_matrices[i] = U[:, :d] # n x d
         
-    sheaf_laplacian = torch.empty(edge_index.size(1), n, n)
+    # sheaf_laplacian = torch.empty(edge_index.size(1), n, n)
         
-    for k in tqdm(range(edge_index.size(1))[:5]):
-        i, j = edge_index[:, k]
-        mul = torch.matmul(O_matrices[i], O_matrices[j].T) # n x n
-        # print(mul.get_device())
-        U, _, V_T = torch.linalg.svd(mul, driver='gesvd')
-        sheaf_laplacian[k] = torch.matmul(U, V_T).to('cpu')
+    # for k in tqdm(range(edge_index.size(1))[:5]):
+    #     i, j = edge_index[:, k]
+    #     mul = torch.matmul(O_matrices[i], O_matrices[j].T) # n x n
+    #     # print(mul.get_device())
+    #     U, _, V_T = torch.linalg.svd(mul, driver='gesvd')
+    #     sheaf_laplacian[k] = torch.matmul(U, V_T).to('cpu')
         
-    if is_self_loops:
-        self_laplac = torch.concat([torch.eye(n).unsqueeze(0) for _ in range(x.size(0))])
-        sheaf_laplacian = torch.concat([sheaf_laplacian, self_laplac], axis=0)
+    # if is_self_loops:
+    #     self_laplac = torch.concat([torch.eye(n).unsqueeze(0) for _ in range(x.size(0))])
+    #     sheaf_laplacian = torch.concat([sheaf_laplacian, self_laplac], axis=0)
     
+    # return sheaf_laplacian
+        
     print("Finished bulding sheaf Laplacian!")
-    return sheaf_laplacian
+
+    return O_matrices
+    
 
 
 # def build_sheaf_laplacian(x, edge_index, d, is_self_loops=True):
