@@ -6,3 +6,4 @@ weights/
 cora/
 *__pycache__/
 *.pt
+*.ipynb

@@ -9,9 +9,7 @@ import torch.optim as optim
 from pygcn.models import GCN
 import pytorch_lightning as pl
 from torch_geometric.datasets import Planetoid
-
-from sklearn.preprocessing import StandardScaler
-
+from torch_geometric.transforms import NormalizeFeatures
 
 def set_seed(seed=42):
     np.random.seed(seed)
@@ -23,14 +21,13 @@ def set_seed(seed=42):
 class CORA_Dataset(torch.utils.data.Dataset):
     def __init__(self):
         super(CORA_Dataset).__init__()
-        self.data = Planetoid(root='datasets/cora/', name='cora')[0]
+        self.data = Planetoid(root='datasets/cora/', name='cora', transform=NormalizeFeatures())[0]
 
-        scaler = StandardScaler()
-        self.data.x[self.data.train_mask] = torch.FloatTensor(scaler.fit_transform(self.data.x[self.data.train_mask]))
-        self.data.x[self.data.val_mask] = torch.FloatTensor(scaler.transform(self.data.x[self.data.val_mask]))
-        self.data.x[self.data.test_mask] = torch.FloatTensor(scaler.transform(self.data.x[self.data.test_mask]))
-
-        self.data.x = self.data.x.to(torch.float32)
+        # scaler = StandardScaler()
+        # self.data.x[self.data.train_mask] = torch.FloatTensor(scaler.fit_transform(self.data.x[self.data.train_mask]))
+        # self.data.x[self.data.val_mask] = torch.FloatTensor(scaler.transform(self.data.x[self.data.val_mask]))
+        # self.data.x[self.data.test_mask] = torch.FloatTensor(scaler.transform(self.data.x[self.data.test_mask]))
+        # self.data.x = self.data.x.to(torch.float32)
         
     def __len__(self):
         return 1
