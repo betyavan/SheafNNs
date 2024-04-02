@@ -1,4 +1,3 @@
-gcn_custom.ipynb
 *.ipynb_checkpoints
 tests/
 lightning_logs/
