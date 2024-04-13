@@ -1,6 +1,6 @@
 *.ipynb_checkpoints
 tests/
-lightning_logs/
+tb_logs/
 weights/
 *.DS_Store
 cora/

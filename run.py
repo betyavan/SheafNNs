@@ -2,21 +2,40 @@ import os
 import argparse
 import numpy as np
 
-import torch
-import torch.nn.functional as F
-import torch.optim as optim
+from pygcn.models import GCN_module
 
-from pygcn.utils import accuracy
-from pygcn.models import GCN
-import pytorch_lightning as pl
+import torch
 from torch_geometric.datasets import Planetoid
 from torch_geometric.transforms import NormalizeFeatures
 from torch_geometric.loader import NeighborLoader
 
-def set_seed(seed=42):
+import pytorch_lightning as pl
+from lightning.pytorch.loggers import TensorBoardLogger
+
+
+import os 
+import random
+import numpy as np 
+
+DEFAULT_RANDOM_SEED = 42
+
+def seedBasic(seed=DEFAULT_RANDOM_SEED):
+    random.seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
     np.random.seed(seed)
+    
+# torch random seed
+import torch
+def seedTorch(seed=DEFAULT_RANDOM_SEED):
     torch.manual_seed(seed)
-    torch.mps.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+      
+# basic + tensorflow + torch 
+def seedEverything(seed=DEFAULT_RANDOM_SEED):
+    seedBasic(seed)
+    seedTorch(seed)
 
 
     
@@ -39,62 +58,13 @@ class CORA_Dataset(torch.utils.data.Dataset):
                self.data.train_mask | self.data.val_mask, self.data.test_mask
     
 
-    
-class GCN_module(pl.LightningModule):
-    def __init__(self, n_feat, n_hid, n_class,
-                       dropout, sheaf_laplacian,
-                       learning_rate=0.01, weight_decay=5e-4):
-        super(GCN_module, self).__init__()
-        self.model = GCN(nfeat=n_feat,
-                         nhid=n_hid,
-                         nclass=n_class,
-                         dropout=dropout,
-                         sheaf_laplacian=sheaf_laplacian)
-        
-        self.learning_rate = learning_rate
-        self.weight_decay = weight_decay
-        self.loss_fn = F.nll_loss
-        
-    def configure_optimizers(self):
-        optim = torch.optim.Adam(self.parameters(), lr=self.learning_rate,
-                           weight_decay=self.weight_decay)
-        return optim
-    
-    def forward(self, features, adj):
-        return self.model(features, adj)
-    
-    
-    def training_step(self, train_batch, batch_idx):
-        # x, edge_index, y, train_mask, val_mask = train_batch
-        # x, edge_index, y = x[0], edge_index[0], y[0]
-        # train_mask, val_mask = train_mask[0], val_mask[0]
-        
-        output = self.model(train_batch.x, train_batch.edge_index)
-        
-        loss_train = self.loss_fn(output[train_batch.train_mask], train_batch.y[train_batch.train_mask])
-        acc_train = accuracy(output[train_batch.train_mask], train_batch.y[train_batch.train_mask])
-        
-        loss_val = self.loss_fn(output[train_batch.val_mask], train_batch.y[train_batch.val_mask])
-        acc_val = accuracy(output[train_batch.val_mask], train_batch.y[train_batch.val_mask])
-        
-        self.log("loss_train", loss_train, prog_bar=True)
-        self.log("acc_train", acc_train, prog_bar=True)
-        
-        self.log("loss_val", loss_val, prog_bar=True)
-        self.log("acc_val", acc_val, prog_bar=True)
-        
-        return loss_train
-        
-    def validation_step(self, val_batch, batch_idx):
-        pass
-
 
 def init_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", type=str, help="name of training dataset")
     parser.add_argument("-d", type=int, help="dimension of edge space")
     parser.add_argument("--device", type=str, help="device for evaluation")
-    parser.add_argument("--pretrained_sheaf", action="store_false", help="use pretrained weights for sheaf")
+    parser.add_argument("--pretrained_sheaf", action="store_true", help="use pretrained weights for sheaf")
 
     return parser
         
@@ -107,21 +77,21 @@ if __name__ == "__main__":
     parser = init_parser()
     args = parser.parse_args()
 
-    set_seed()
+    seedEverything()
     
     dataset = CORA_Dataset()
     # dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False)
     dataloader = NeighborLoader(
         dataset.data,
         # Sample 30 neighbors for each node for 2 iterations
-        num_neighbors=[10] * 2,
+        num_neighbors=[30] * 2,
         # Use a batch size of 128 for sampling training nodes
         batch_size=128,
         input_nodes=dataset.data.train_mask, 
     )
     
     n_feat = dataset.data.x.size(1)
-    hidden = 16
+    d = 750
     n_class = dataset.data.y.max().item() + 1
     dropout = 0.5
 
@@ -130,14 +100,17 @@ if __name__ == "__main__":
         print("Sheaf Laplacian loaded successfully\n")
     else:
         from pygcn.train_sheaf import build_sheaf_laplacian
-        sheaf_laplacian = build_sheaf_laplacian(dataset.data.x, dataset.data.edge_index, hidden, device=args.device)
-        torch.save(sheaf_laplacian, f"weights/slaplac_{args.dataset}_{args.d}.pt")
+        sheaf_laplacian = build_sheaf_laplacian(dataset.data.x, dataset.data.edge_index, d, device=args.device)
+        # print('local_pca', sheaf_laplacian['local_pca'].size())
+        # print('local_mean', sheaf_laplacian['local_mean'].size())
+        # torch.save(sheaf_laplacian, f"weights/slaplac_{args.dataset}_{args.d}.pt")
 
     weight_decay = 5e-4
     
-    module = GCN_module(n_feat, hidden, n_class, dropout, sheaf_laplacian)
+    module = GCN_module(n_feat, d, n_class, dropout, sheaf_laplacian)
     
-    trainer = pl.Trainer(max_epochs=300, accelerator=args.device)
+    logger = TensorBoardLogger("tb_logs", name="my_model")
+    trainer = pl.Trainer(max_epochs=300, accelerator=args.device, logger=logger)
     
     trainer.fit(module, dataloader, dataloader)
     torch.save(module.state_dict(), f"weights/gcn_{args.dataset}_{args.d}.pt")

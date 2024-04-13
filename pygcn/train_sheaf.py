@@ -12,6 +12,7 @@ def build_sheaf_laplacian(x, edge_index, d, is_self_loops=True, device='cuda'):
         assert torch.cuda.is_available()
     n = x.size(1)
     O_matrices = torch.empty(x.size(0), n, d, device=device)
+    O_means = torch.empty(x.size(0), n, device=device)
     dists = torch.tensor(cdist(x, x))
     for i in tqdm(range(x.size(0))):
         local_nbhood = k_hop_subgraph(i, 1, edge_index, relabel_nodes=False)[0]
@@ -29,6 +30,7 @@ def build_sheaf_laplacian(x, edge_index, d, is_self_loops=True, device='cuda'):
         x_local = x[local_nbhood].T.to(device)
         U, _, _ = torch.linalg.svd(x_local) 
         O_matrices[i] = U[:, :d] # n x d
+        O_means[i] = x[local_nbhood].mean(dim=0)
         
     # sheaf_laplacian = torch.empty(edge_index.size(1), n, n)
         
@@ -47,7 +49,7 @@ def build_sheaf_laplacian(x, edge_index, d, is_self_loops=True, device='cuda'):
         
     print("Finished bulding sheaf Laplacian!")
 
-    return O_matrices
+    return {"local_pca": O_matrices, "local_mean": O_means}
     
 
 
