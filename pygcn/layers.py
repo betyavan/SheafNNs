@@ -62,11 +62,11 @@ class GCNConv(MessagePassing):
 
         # eval align matrices
         # self.local_pca, self.local_mean = build_align_matrix(self.sheaf_laplacian, edge_index)
-        self.local_pca = {'i': torch.transpose(self.sheaf_laplacian['local_pca'], 1, 2)[edge_index[0]],
-                          'j': self.sheaf_laplacian['local_pca'][edge_index[1]],}
+        self.local_pca = {'i': torch.transpose(self.sheaf_laplacian['local_pca'], 1, 2).to(self.device)[edge_index[0]],
+                          'j': self.sheaf_laplacian['local_pca'].to(self.device)[edge_index[1]],}
         
-        self.local_mean = {'i': self.sheaf_laplacian['local_mean'][edge_index[0]],
-                           'j': self.sheaf_laplacian['local_mean'][edge_index[1]],}
+        self.local_mean = {'i': self.sheaf_laplacian['local_mean'].to(self.device)[edge_index[0]],
+                           'j': self.sheaf_laplacian['local_mean'].to(self.device)[edge_index[1]],}
 
         # Step 4-5: Start propagating messages.
         out = self.propagate(edge_index, x=x, norm=norm)

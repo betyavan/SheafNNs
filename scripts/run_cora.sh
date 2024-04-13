@@ -1,4 +1,4 @@
 python -m run \
     --dataset cora \
-    -d 16 \
-    --device cpu 
+    -d 100 \
+    --device cuda 

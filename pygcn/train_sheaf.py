@@ -6,7 +6,7 @@ from scipy.spatial.distance import cdist
 import torch
 
 
-def build_sheaf_laplacian(x, edge_index, d, is_self_loops=True, device='cuda'):
+def build_sheaf_laplacian(x, edge_index, d, is_self_loops=True, device='cpu'):
     print("Start bulding sheaf Laplacian...")
     if device == "cuda":
         assert torch.cuda.is_available()
@@ -28,7 +28,7 @@ def build_sheaf_laplacian(x, edge_index, d, is_self_loops=True, device='cuda'):
             else:
                 local_nbhood = nearests     
         x_local = x[local_nbhood].T.to(device)
-        U, _, _ = torch.linalg.svd(x_local) 
+        U, _, _ = torch.linalg.svd(x_local)
         O_matrices[i] = U[:, :d] # n x d
         O_means[i] = x[local_nbhood].mean(dim=0)
         

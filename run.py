@@ -7,7 +7,7 @@ from pygcn.models import GCN_module
 import torch
 from torch_geometric.datasets import Planetoid
 from torch_geometric.transforms import NormalizeFeatures
-from torch_geometric.loader import NeighborLoader
+from torch_geometric.loader import DataLoader
 
 import pytorch_lightning as pl
 from lightning.pytorch.loggers import TensorBoardLogger
@@ -42,7 +42,7 @@ def seedEverything(seed=DEFAULT_RANDOM_SEED):
 class CORA_Dataset(torch.utils.data.Dataset):
     def __init__(self):
         super(CORA_Dataset).__init__()
-        self.data = Planetoid(root='datasets/cora/', name='cora', transform=NormalizeFeatures())[0]
+        self.data = Planetoid(root='datasets/cora/', name='cora', transform=NormalizeFeatures())
 
         # scaler = StandardScaler()
         # self.data.x[self.data.train_mask] = torch.FloatTensor(scaler.fit_transform(self.data.x[self.data.train_mask]))
@@ -81,17 +81,15 @@ if __name__ == "__main__":
     
     dataset = CORA_Dataset()
     # dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False)
-    dataloader = NeighborLoader(
+    dataloader = DataLoader(
         dataset.data,
-        # Sample 30 neighbors for each node for 2 iterations
-        num_neighbors=[30] * 2,
-        # Use a batch size of 128 for sampling training nodes
-        batch_size=128,
-        input_nodes=dataset.data.train_mask, 
+        batch_size=128
     )
+
+    next(iter(dataloader))
     
     n_feat = dataset.data.x.size(1)
-    d = 750
+    d = args.d
     n_class = dataset.data.y.max().item() + 1
     dropout = 0.5
 
@@ -100,7 +98,7 @@ if __name__ == "__main__":
         print("Sheaf Laplacian loaded successfully\n")
     else:
         from pygcn.train_sheaf import build_sheaf_laplacian
-        sheaf_laplacian = build_sheaf_laplacian(dataset.data.x, dataset.data.edge_index, d, device=args.device)
+        sheaf_laplacian = build_sheaf_laplacian(dataset.data.x, dataset.data.edge_index, d, device=args.device).to("cpu")
         # print('local_pca', sheaf_laplacian['local_pca'].size())
         # print('local_mean', sheaf_laplacian['local_mean'].size())
         # torch.save(sheaf_laplacian, f"weights/slaplac_{args.dataset}_{args.d}.pt")
