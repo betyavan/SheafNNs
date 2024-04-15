@@ -83,10 +83,8 @@ if __name__ == "__main__":
     # dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False)
     dataloader = DataLoader(
         dataset.data,
-        batch_size=128
+        batch_size=1
     )
-
-    next(iter(dataloader))
     
     n_feat = dataset.data.x.size(1)
     d = args.d
@@ -94,14 +92,18 @@ if __name__ == "__main__":
     dropout = 0.5
 
     if args.pretrained_sheaf:
-        sheaf_laplacian = torch.load(f"weights/slaplac_{args.dataset}_{args.d}.pt")
+        sheaf_laplacian = {
+            "local_pca": torch.load(f"weights/pca_{args.dataset}_{args.d}.pt"),
+            "local_mean": torch.load(f"weights/mean_{args.dataset}_{args.d}.pt")
+        }
         print("Sheaf Laplacian loaded successfully\n")
     else:
         from pygcn.train_sheaf import build_sheaf_laplacian
-        sheaf_laplacian = build_sheaf_laplacian(dataset.data.x, dataset.data.edge_index, d, device=args.device).to("cpu")
+        sheaf_laplacian = build_sheaf_laplacian(dataset.data.x, dataset.data.edge_index, d, device=args.device)
         # print('local_pca', sheaf_laplacian['local_pca'].size())
         # print('local_mean', sheaf_laplacian['local_mean'].size())
-        # torch.save(sheaf_laplacian, f"weights/slaplac_{args.dataset}_{args.d}.pt")
+        torch.save(sheaf_laplacian["local_pca"], f"weights/pca_{args.dataset}_{args.d}.pt")
+        torch.save(sheaf_laplacian["local_mean"], f"weights/mean_{args.dataset}_{args.d}.pt")
 
     weight_decay = 5e-4
     

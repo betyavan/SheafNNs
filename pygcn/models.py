@@ -64,8 +64,8 @@ class GCN_module(pl.LightningModule):
         self.log("loss_train", loss_train, prog_bar=True)
         self.log("acc_train", acc_train, prog_bar=True)
         
-        self.log("loss_val", loss_val, prog_bar=False)
-        self.log("acc_val", acc_val, prog_bar=False)
+        self.log("loss_val", loss_val, prog_bar=True)
+        self.log("acc_val", acc_val, prog_bar=True)
         
         return loss_train
         

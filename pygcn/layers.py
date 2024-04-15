@@ -62,11 +62,7 @@ class GCNConv(MessagePassing):
 
         # eval align matrices
         # self.local_pca, self.local_mean = build_align_matrix(self.sheaf_laplacian, edge_index)
-        self.local_pca = {'i': torch.transpose(self.sheaf_laplacian['local_pca'], 1, 2).to(self.device)[edge_index[0]],
-                          'j': self.sheaf_laplacian['local_pca'].to(self.device)[edge_index[1]],}
-        
-        self.local_mean = {'i': self.sheaf_laplacian['local_mean'].to(self.device)[edge_index[0]],
-                           'j': self.sheaf_laplacian['local_mean'].to(self.device)[edge_index[1]],}
+        self.edge_index = edge_index
 
         # Step 4-5: Start propagating messages.
         out = self.propagate(edge_index, x=x, norm=norm)
@@ -79,17 +75,22 @@ class GCNConv(MessagePassing):
     def message(self, x_j, norm):
         # x_j has shape [E, out_channels]
         
+        edge_index = self.edge_index
+        
         if self.sheaf_laplacian is not None:
-            n, d = x_j.size(1), self.local_pca['j'].size(2)
+            n, d = x_j.size(1), self.sheaf_laplacian['local_pca'].size(2)
             # print("x_j", x_j.size())
             # print("self.local_mean['i']", self.local_mean['i'].size())
             # print("self.local_mean['j']", self.local_mean['j'].size())
             # print("self.local_pca['i']", self.local_pca['i'].size())
             # print("self.local_pca['j']", self.local_pca['j'].size())
-            x_j = x_j - self.local_mean['i']
-            x_j = torch.matmul(self.local_pca['i'], x_j.unsqueeze(2)).view(-1, d)
-            x_j = torch.matmul(self.local_pca['j'], x_j.unsqueeze(2)).view(-1, n)
-            x_j = x_j + self.local_mean['j']
+            # print("="*50, edge_index.size(), "="*50)
+            x_j = x_j - self.sheaf_laplacian['local_mean'][edge_index[0]]
+            x_j = torch.matmul(torch.transpose(self.sheaf_laplacian['local_pca'][edge_index[0]], 1, 2),
+                               x_j.unsqueeze(2)).view(-1, d)
+            x_j = torch.matmul(self.sheaf_laplacian['local_pca'][edge_index[1]],
+                               x_j.unsqueeze(2)).view(-1, n)
+            x_j = x_j + self.sheaf_laplacian['local_mean'][edge_index[1]]
         
         x_j = self.lin(x_j)
 
