@@ -6,4 +6,6 @@ pytorch_lightning
 tqdm
 tensorboard
 lightning
+pandas
+pydantic
 # test

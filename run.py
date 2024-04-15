@@ -4,6 +4,10 @@ import numpy as np
 
 from pygcn.models import GCN_module
 
+import dgl
+
+from pygcn.data import *
+
 import torch
 from torch_geometric.datasets import Planetoid
 from torch_geometric.transforms import NormalizeFeatures
@@ -39,23 +43,23 @@ def seedEverything(seed=DEFAULT_RANDOM_SEED):
 
 
     
-class CORA_Dataset(torch.utils.data.Dataset):
-    def __init__(self):
-        super(CORA_Dataset).__init__()
-        self.data = Planetoid(root='datasets/cora/', name='cora', transform=NormalizeFeatures())
+# class CORA_Dataset(torch.utils.data.Dataset):
+#     def __init__(self):
+#         super(CORA_Dataset).__init__()
+#         self.data = Planetoid(root='datasets/cora/', name='cora', transform=NormalizeFeatures())
 
-        # scaler = StandardScaler()
-        # self.data.x[self.data.train_mask] = torch.FloatTensor(scaler.fit_transform(self.data.x[self.data.train_mask]))
-        # self.data.x[self.data.val_mask] = torch.FloatTensor(scaler.transform(self.data.x[self.data.val_mask]))
-        # self.data.x[self.data.test_mask] = torch.FloatTensor(scaler.transform(self.data.x[self.data.test_mask]))
-        # self.data.x = self.data.x.to(torch.float32)
+#         # scaler = StandardScaler()
+#         # self.data.x[self.data.train_mask] = torch.FloatTensor(scaler.fit_transform(self.data.x[self.data.train_mask]))
+#         # self.data.x[self.data.val_mask] = torch.FloatTensor(scaler.transform(self.data.x[self.data.val_mask]))
+#         # self.data.x[self.data.test_mask] = torch.FloatTensor(scaler.transform(self.data.x[self.data.test_mask]))
+#         # self.data.x = self.data.x.to(torch.float32)
         
-    def __len__(self):
-        return 1
+#     def __len__(self):
+#         return 1
     
-    def __getitem__(self, idx):
-        return self.data.x, self.data.edge_index, self.data.y,\
-               self.data.train_mask | self.data.val_mask, self.data.test_mask
+#     def __getitem__(self, idx):
+#         return self.data.x, self.data.edge_index, self.data.y,\
+#                self.data.train_mask | self.data.val_mask, self.data.test_mask
     
 
 
@@ -79,16 +83,24 @@ if __name__ == "__main__":
 
     seedEverything()
     
-    dataset = CORA_Dataset()
+    # dataset = CORA_Dataset()
     # dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=False)
-    dataloader = DataLoader(
-        dataset.data,
-        batch_size=1
-    )
+    # dataloader = DataLoader(
+    #     dataset.data,
+    #     batch_size=1
+    # )
     
-    n_feat = dataset.data.x.size(1)
+    g = SheafDataset(args.dataset).data
+    dataloader = dgl.dataloading.DataLoader(g, torch.arange(3), MySampler(),
+                                        batch_size=128, shuffle=False, drop_last=False, num_workers=4)
+    
+    # for i in dataloader:
+    #     print(i.ndata["feat"])
+    # exit()
+    
+    n_feat = g.ndata["feat"].size(1)
     d = args.d
-    n_class = dataset.data.y.max().item() + 1
+    n_class = g.ndata["label"].max().item() + 1
     dropout = 0.5
 
     if args.pretrained_sheaf:
@@ -99,7 +111,7 @@ if __name__ == "__main__":
         print("Sheaf Laplacian loaded successfully\n")
     else:
         from pygcn.train_sheaf import build_sheaf_laplacian
-        sheaf_laplacian = build_sheaf_laplacian(dataset.data.x, dataset.data.edge_index, d, device=args.device)
+        sheaf_laplacian = build_sheaf_laplacian(g.ndata["feat"], g.edges_tensor, d, device=args.device)
         # print('local_pca', sheaf_laplacian['local_pca'].size())
         # print('local_mean', sheaf_laplacian['local_mean'].size())
         torch.save(sheaf_laplacian["local_pca"], f"weights/pca_{args.dataset}_{args.d}.pt")

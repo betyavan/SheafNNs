@@ -53,13 +53,21 @@ class GCN_module(pl.LightningModule):
         # x, edge_index, y = x[0], edge_index[0], y[0]
         # train_mask, val_mask = train_mask[0], val_mask[0]
         
-        output = self.model(train_batch.x, train_batch.edge_index)
+        output = self.model(train_batch.ndata["feat"], train_batch.edges_tensor)
         
-        loss_train = self.loss_fn(output[train_batch.train_mask], train_batch.y[train_batch.train_mask])
-        acc_train = accuracy(output[train_batch.train_mask], train_batch.y[train_batch.train_mask])
+        loss_train = self.loss_fn(
+            output[train_batch.ndata["train_mask"]], train_batch.ndata["label"][train_batch.ndata["train_mask"]]
+        )
+        acc_train = accuracy(
+            output[train_batch.ndata["train_mask"]], train_batch.ndata["label"][train_batch.ndata["train_mask"]]
+        )
         
-        loss_val = self.loss_fn(output[train_batch.val_mask], train_batch.y[train_batch.val_mask])
-        acc_val = accuracy(output[train_batch.val_mask], train_batch.y[train_batch.val_mask])
+        loss_val = self.loss_fn(
+            output[train_batch.ndata["test_mask"]], train_batch.ndata["label"][train_batch.ndata["test_mask"]]
+        )
+        acc_val = accuracy(
+            output[train_batch.ndata["test_mask"]], train_batch.ndata["label"][train_batch.ndata["test_mask"]]
+        )
         
         self.log("loss_train", loss_train, prog_bar=True)
         self.log("acc_train", acc_train, prog_bar=True)
