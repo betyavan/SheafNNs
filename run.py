@@ -121,8 +121,8 @@ if __name__ == "__main__":
     
     module = GCN_module(n_feat, d, n_class, dropout, sheaf_laplacian)
     
-    logger = TensorBoardLogger("tb_logs", name="my_model")
-    trainer = pl.Trainer(max_epochs=300, accelerator=args.device, logger=logger)
+    logger = TensorBoardLogger(f"logs/{args.dataset}", name=f"my_model_{args.d}")
+    trainer = pl.Trainer(max_epochs=100, accelerator=args.device, logger=logger)
     
     trainer.fit(module, dataloader, dataloader)
     torch.save(module.state_dict(), f"weights/gcn_{args.dataset}_{args.d}.pt")

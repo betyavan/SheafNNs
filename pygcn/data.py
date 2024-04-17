@@ -26,9 +26,9 @@ class SheafDataset(torch.utils.data.Dataset):
         # print(self.data.ndata["feat"])
         
         feat = torch.clone(self.data.ndata["feat"])
-        train_mask = self.data.ndata["train_mask"] | self.data.ndata["test_mask"]
+        train_mask = self.data.ndata["train_mask"] | self.data.ndata["val_mask"]
         self.data.ndata["train_mask"] = train_mask
-        test_mask = self.data.ndata["val_mask"]
+        test_mask = self.data.ndata["test_mask"]
         
         # print(train_mask)
         # print(test_mask)

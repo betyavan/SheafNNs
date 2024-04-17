@@ -1,5 +1,5 @@
 python -m run \
-    --dataset cora \
-    -d 16 \
+    --dataset texas \
+    -d 4 \
     --device cuda 
     # --pretrained

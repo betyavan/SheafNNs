@@ -8,4 +8,6 @@ tensorboard
 lightning
 pandas
 pydantic
+torchdata
+chardet
 # test

@@ -1,6 +1,6 @@
 *.ipynb_checkpoints
 tests/
-tb_logs/
+logs/
 weights/
 *.DS_Store
 datasets/

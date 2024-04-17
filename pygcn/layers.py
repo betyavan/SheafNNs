@@ -46,7 +46,7 @@ class GCNConv(MessagePassing):
     def forward(self, x, edge_index):
         # x has shape [N, in_channels]
         # edge_index has shape [2, E]
-
+        edge_index = edge_index.to(torch.device(x.get_device()))
         # Step 1: Add self-loops to the adjacency matrix.
         edge_index, _ = add_self_loops(edge_index, num_nodes=x.size(0))
 
