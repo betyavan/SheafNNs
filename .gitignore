@@ -3,6 +3,6 @@ tests/
 tb_logs/
 weights/
 *.DS_Store
-cora/
+datasets/
 *__pycache__/
 *.pt
