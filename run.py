@@ -9,9 +9,9 @@ import dgl
 from pygcn.data import *
 
 import torch
-from torch_geometric.datasets import Planetoid
-from torch_geometric.transforms import NormalizeFeatures
-from torch_geometric.loader import DataLoader
+# from torch_geometric.datasets import Planetoid
+# from torch_geometric.transforms import NormalizeFeatures
+# from torch_geometric.loader import DataLoader
 
 import pytorch_lightning as pl
 from lightning.pytorch.loggers import TensorBoardLogger
@@ -122,7 +122,7 @@ if __name__ == "__main__":
     module = GCN_module(n_feat, d, n_class, dropout, sheaf_laplacian)
     
     logger = TensorBoardLogger(f"logs/{args.dataset}", name=f"my_model_{args.d}")
-    trainer = pl.Trainer(max_epochs=100, accelerator=args.device, logger=logger)
+    trainer = pl.Trainer(max_epochs=100, accelerator=args.device, logger=logger, log_every_n_steps=5)
     
     trainer.fit(module, dataloader, dataloader)
     torch.save(module.state_dict(), f"weights/gcn_{args.dataset}_{args.d}.pt")

@@ -1,5 +1,5 @@
 python -m run \
     --dataset squirrel \
-    -d 4 \
+    -d 8 \
     --device cuda 
     # --pretrained

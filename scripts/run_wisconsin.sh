@@ -1,5 +1,5 @@
 python -m run \
     --dataset wisconsin \
-    -d 4 \
+    -d 16 \
     --device cuda 
     # --pretrained
